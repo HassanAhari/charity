@@ -73,12 +73,53 @@ class Tasks(generics.ListCreateAPIView):
 
 
 class TaskRequest(APIView):
-    pass
+    permission_classes = (IsBenefactor, )
+
+    def get(self, request, task_id):
+        task = get_object_or_404(Task, id=task_id)
+        if task != 404:
+            if task.state == Task.TaskStatus.PENDING:
+                task.assign_to_benefactor(request.user.benefactor)
+                return Response({'detail': 'Request sent.'}, status=200)
+            return Response({'detail': 'This task is not pending.'}, status=404)
+        return Response({'detail': 'You do not have access'}, status=404)
 
 
 class TaskResponse(APIView):
-    pass
+    permission_classes = (IsCharityOwner, )
+
+    def post(self, request, task_id):
+        task = get_object_or_404(Task, id=task_id)
+        if task == 404:
+            return Response({'detail': 'error'}, status=404)
+
+        response = request.data['response']
+        if response != 'A' and response != 'R':
+            return Response({'detail': 'Required field ("A" for accepted / "R" for rejected)'}, status=400)
+
+        if task.state != Task.TaskStatus.WAITING:
+            print('hello')
+            return Response({'detail': 'This task is not waiting.'}, status=404)
+
+        if response == 'A':
+            task.response_to_benefactor_request('A')
+            return Response({'detail': 'Response sent.'}, status=200)
+
+        if response == 'R':
+            task.response_to_benefactor_request('R')
+            return Response({'detail': 'Response sent.'}, status=200)
 
 
 class DoneTask(APIView):
-    pass
+    permission_classes = (IsCharityOwner, )
+
+    def post(self, request, task_id):
+        task = get_object_or_404(Task, id=task_id)
+        if task == 404:
+            return Response({'detail': 'error'}, status=404)
+
+        if task.state != Task.TaskStatus.ASSIGNED:
+            return Response({'detail': 'Task is not assigned yet.'}, status=404)
+
+        task.done()
+        return Response({'detail': 'Task has been done successfully.'}, status=200)
