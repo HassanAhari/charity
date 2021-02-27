@@ -1,1 +1,1 @@
-Quera django course project
+
